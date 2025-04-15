@@ -6,6 +6,7 @@ import (
 
 type ClientGroup interface {
 	AddClient(client Client) error
+	OnClientDisconnected(id string)
 }
 
 type clientGroupImpl struct {
@@ -17,9 +18,18 @@ func CreateClientGroup() ClientGroup {
 }
 
 func (cg *clientGroupImpl) AddClient(client Client) error {
-	if cg.clients[client.GetId()] != nil {
+	if cg.clients[client.GetPublicId()] != nil {
 		return errors.New("Client with same ID is already registered")
 	}
-	cg.clients[client.GetId()] = client
+	cg.clients[client.GetPublicId()] = client
+	cg.notifyClientConnected(client.GetPublicId())
 	return nil
+}
+
+func (cg *clientGroupImpl) OnClientDisconnected(id string) {
+	// TODO:
+}
+
+func (cg *clientGroupImpl) notifyClientConnected(id string) {
+	// TODO:
 }

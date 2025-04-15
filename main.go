@@ -1,6 +1,7 @@
 package main
 
 import (
+	"communication"
 	"errors"
 	"fmt"
 	"internal"
@@ -31,7 +32,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error parsing command line arguments: %s", err.Error())
 	}
-	server := internal.CreateServer(settings.Port)
+	server := communication.CreateServer(settings.Port)
 	setClientGroups(server)
 	server.Run()
 }
@@ -64,6 +65,6 @@ func parseMainArgs(args []string) (parsedSettings, error) {
 	return settings, nil
 }
 
-func setClientGroups(server internal.Server) {
+func setClientGroups(server communication.Server) {
 	server.AddClientGroup("", internal.CreateClientGroup())
 }
