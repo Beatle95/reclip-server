@@ -16,7 +16,9 @@ type clientGroupImpl struct {
 }
 
 func CreateClientGroup() ClientGroup {
-	return &clientGroupImpl{}
+	return &clientGroupImpl{
+		clients: make(map[string]Client),
+	}
 }
 
 // ClientGroup implementations:

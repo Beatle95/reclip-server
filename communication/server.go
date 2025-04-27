@@ -21,8 +21,9 @@ type serverImpl struct {
 
 func CreateServer(port uint16) Server {
 	return &serverImpl{
-		port:        port,
-		initialized: false,
+		port:         port,
+		clientGroups: make(map[string]internal.ClientGroup),
+		initialized:  false,
 	}
 }
 
