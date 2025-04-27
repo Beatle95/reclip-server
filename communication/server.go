@@ -1,6 +1,7 @@
 package communication
 
 import (
+	"errors"
 	"fmt"
 	"internal"
 	"log"
@@ -8,26 +9,38 @@ import (
 )
 
 type Server interface {
+	Init() error
 	Run()
-	AddClientGroup(groupId string, newGroup internal.ClientGroup)
 }
 
 type serverImpl struct {
 	port         uint16
 	clientGroups map[string]internal.ClientGroup
+	initialized  bool
 }
 
 func CreateServer(port uint16) Server {
 	return &serverImpl{
-		port: port,
+		port:        port,
+		initialized: false,
 	}
 }
 
-func (s *serverImpl) AddClientGroup(groupId string, newGroup internal.ClientGroup) {
-	s.clientGroups[groupId] = newGroup
+func (s *serverImpl) Init() error {
+	if s.initialized {
+		return errors.New("attempting to initialize server twice")
+	}
+	s.clientGroups[""] = internal.CreateClientGroup()
+	s.initialized = true
+	return nil
 }
 
 func (s *serverImpl) Run() {
+	if !s.initialized {
+		log.Fatal("Server is not initialized")
+		return
+	}
+
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
 		log.Fatal("Error initializing server socket: " + err.Error())
@@ -38,39 +51,32 @@ func (s *serverImpl) Run() {
 	fmt.Printf("Server up and listening on port %d\n", s.port)
 	for {
 		conn, err := listener.Accept()
+		log.Printf("Client %v connected.", conn.RemoteAddr())
 		if err != nil {
 			log.Println(err)
 			continue
 		}
-		go s.handleConnection(conn)
+		HandleUnregisteredClient(conn, s.handleNewConnection)
 	}
 }
 
-func (s *serverImpl) handleConnection(connection net.Conn) {
-	log.Printf("Client %v connected.", connection.RemoteAddr())
-
-	// First, client must introduce itself by sending secret ID.
-	clientSecret, error := s.processIntroduction(connection)
-	if error != nil {
-		log.Printf("Client %v introduction error: %v", connection.RemoteAddr(), error)
+// Called from another goroutine.
+func (s *serverImpl) handleNewConnection(connection net.Conn, secret string) {
+	group := s.findGroupForClient(secret)
+	if group == nil {
 		connection.Close()
+		fmt.Printf("Disconnecting unknown client: %s", connection.RemoteAddr().String())
 		return
 	}
-
-	group := s.clientGroups[clientSecret]
-	client := internal.CreateClient(
-		&clientConnectionImpl{connection: connection},
-		group, "public", "name")
-	err := group.AddClient(client)
+	connInternal := createClientConnection(connection)
+	client := internal.CreateClient(&connInternal, group, "public", "name")
+	err := group.HandleNewClient(client)
 	if err != nil {
-		fmt.Printf("Unable to add client: %s", connection.RemoteAddr())
+		fmt.Printf("Unable to add client: %s", connInternal.GetAdressString())
 		connection.Close()
 	}
-
-	client.HandleConnection()
 }
 
-func (s *serverImpl) processIntroduction(_ net.Conn) (string, error) {
-	// TODO:
-	return "secret", nil
+func (s *serverImpl) findGroupForClient(clientSecret string) internal.ClientGroup {
+	return s.clientGroups[clientSecret]
 }

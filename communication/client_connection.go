@@ -7,18 +7,40 @@ import (
 
 type clientConnectionImpl struct {
 	connection net.Conn
+	delegate   internal.ClientConnectionDelegate
+	stopped    bool
 }
 
-func (conn *clientConnectionImpl) SendMessage() {
+func createClientConnection(conn net.Conn) clientConnectionImpl {
+	return clientConnectionImpl{
+		connection: conn,
+		delegate:   nil,
+		stopped:    false,
+	}
+}
+
+func (conn *clientConnectionImpl) GetAdressString() string {
+	return conn.connection.RemoteAddr().String()
+}
+
+func (conn *clientConnectionImpl) SetDelegate(delegate internal.ClientConnectionDelegate) {
+	conn.delegate = delegate
+}
+
+func (conn *clientConnectionImpl) StartAsync() {
+	go conn.startReader()
+}
+
+func (conn *clientConnectionImpl) SendMessage(
+	id uint64, msgType internal.ServerMessageType, data []byte) {
 	// TODO:
 }
 
-func (conn *clientConnectionImpl) ReadMessage() (internal.Message, error) {
-	// TODO:
-	return internal.Message{}, nil
+func (conn *clientConnectionImpl) StopAsync() {
+	conn.connection.Close()
 }
 
-func (conn *clientConnectionImpl) Disconnect() {
+func (conn *clientConnectionImpl) startReader() {
 	// TODO:
 }
 

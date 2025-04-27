@@ -4,7 +4,6 @@ import (
 	"communication"
 	"errors"
 	"fmt"
-	"internal"
 	"os"
 	"slices"
 	"strconv"
@@ -31,9 +30,14 @@ func main() {
 	settings, err := parseMainArgs(os.Args[1:])
 	if err != nil {
 		fmt.Printf("Error parsing command line arguments: %s", err.Error())
+		return
 	}
 	server := communication.CreateServer(settings.Port)
-	setClientGroups(server)
+	err = server.Init()
+	if err != nil {
+		fmt.Printf("Unable to initialize the server: '%s'", err.Error())
+		return
+	}
 	server.Run()
 }
 
@@ -63,8 +67,4 @@ func parseMainArgs(args []string) (parsedSettings, error) {
 		}
 	}
 	return settings, nil
-}
-
-func setClientGroups(server communication.Server) {
-	server.AddClientGroup("", internal.CreateClientGroup())
 }
