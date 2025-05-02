@@ -31,13 +31,13 @@ func (conn *clientConnectionImpl) StartAsync() {
 	go conn.startReader()
 }
 
+func (conn *clientConnectionImpl) StopAsync() {
+	conn.connection.Close()
+}
+
 func (conn *clientConnectionImpl) SendMessage(
 	id uint64, msgType internal.ServerMessageType, data []byte) {
 	// TODO:
-}
-
-func (conn *clientConnectionImpl) StopAsync() {
-	conn.connection.Close()
 }
 
 func (conn *clientConnectionImpl) startReader() {
