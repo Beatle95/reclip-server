@@ -4,24 +4,6 @@ import (
 	"testing"
 )
 
-func isEqual(lhs ClientData, rhs ClientData) bool {
-	if lhs.id != rhs.id || lhs.name != rhs.name {
-		return false
-	}
-
-	if lhs.data.text.Len() != rhs.data.text.Len() {
-		return false
-	}
-
-	for i := 0; i < lhs.data.text.Len(); i++ {
-		if lhs.data.text.At(i) != rhs.data.text.At(i) {
-			return false
-		}
-	}
-
-	return true
-}
-
 type OthersTextData struct {
 	id   string
 	text string
@@ -37,11 +19,11 @@ type MockClient struct {
 }
 
 func (c *MockClient) GetPublicId() string {
-	return c.data.id
+	return c.data.Id
 }
 
 func (c *MockClient) GetName() string {
-	return c.data.name
+	return c.data.Name
 }
 
 func (c *MockClient) GetClientData() *ClientData {
@@ -74,20 +56,20 @@ func (c *MockClient) NotifyClientSynced(data *ClientData) {
 func TestClientGroup(t *testing.T) {
 	client1 := MockClient{
 		data: ClientData{
-			id:   "id1",
-			name: "name1",
+			Id:   "id1",
+			Name: "name1",
 		},
 	}
 	client2 := MockClient{
 		data: ClientData{
-			id:   "id2",
-			name: "name2",
+			Id:   "id2",
+			Name: "name2",
 		},
 	}
 	client3 := MockClient{
 		data: ClientData{
-			id:   "id3",
-			name: "name3",
+			Id:   "id3",
+			Name: "name3",
 		},
 	}
 
@@ -120,7 +102,7 @@ func TestClientGroup(t *testing.T) {
 	}
 
 	sometText := "some added text"
-	client1.data.data.text.PushBack(sometText)
+	client1.data.Data.Text.PushBack(sometText)
 	testGroup.OnTextAdded(&client1, sometText)
 	if len(client2.othersText) != 1 || client2.othersText[0].id != client1.GetPublicId() ||
 		client2.othersText[0].text != sometText {
@@ -128,7 +110,7 @@ func TestClientGroup(t *testing.T) {
 	}
 
 	syncData := testGroup.GetFullSyncData(&client3)
-	if !isEqual(syncData[0], client1.data) || !isEqual(syncData[1], client2.data) {
+	if !IsEqual(syncData[0], client1.data) || !IsEqual(syncData[1], client2.data) {
 		t.Errorf("Bad full sync response, sync data was: %v", syncData)
 	}
 

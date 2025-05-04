@@ -38,8 +38,8 @@ func CreateClient(
 		connection: connection,
 		delegate:   delegate,
 		data: ClientData{
-			id:   publicId,
-			name: name,
+			Id:   publicId,
+			Name: name,
 		},
 		idCounter: 0,
 	}
@@ -71,11 +71,11 @@ func (c *clientImpl) OnDisconnected() {
 // Client implementations:
 
 func (c *clientImpl) GetPublicId() string {
-	return c.data.id
+	return c.data.Id
 }
 
 func (c *clientImpl) GetName() string {
-	return c.data.name
+	return c.data.Name
 }
 
 func (c *clientImpl) GetClientData() *ClientData {
@@ -142,7 +142,7 @@ func (c *clientImpl) processHostTextUpdate(data []byte) {
 		fmt.Print("Unable to parse host text update")
 		return
 	}
-	c.data.data.text.PushBack(text)
+	c.data.Data.Text.PushBack(text)
 	c.delegate.OnTextAdded(c, text)
 }
 

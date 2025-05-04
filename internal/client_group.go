@@ -119,7 +119,7 @@ func (cg *clientGroupImpl) notifyTextAdded(id string, text string) {
 
 func (cg *clientGroupImpl) notifyClientSynced(data *ClientData) {
 	for clientId, clientValue := range cg.clients {
-		if clientId == data.id {
+		if clientId == data.Id {
 			continue
 		}
 		clientValue.NotifyClientSynced(data)
