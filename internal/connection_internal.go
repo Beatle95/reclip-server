@@ -7,7 +7,7 @@ type ClientConnectionDelegate interface {
 
 type ClientConnection interface {
 	GetAdressString() string
-	SetDelegate(delegate ClientConnectionDelegate)
+	SetUp(delegate ClientConnectionDelegate, taskRunner EventLoop)
 
 	StartAsync()
 	StopAsync()

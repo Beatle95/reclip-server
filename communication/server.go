@@ -32,6 +32,11 @@ func (s *serverImpl) Init() error {
 		return errors.New("attempting to initialize server twice")
 	}
 	s.clientGroups[""] = internal.CreateClientGroup()
+
+	for _, group := range s.clientGroups {
+		group.RunAsync()
+	}
+
 	s.initialized = true
 	return nil
 }

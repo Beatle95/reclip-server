@@ -20,6 +20,7 @@ type networkMessage struct {
 type clientConnectionImpl struct {
 	connection net.Conn
 	delegate   internal.ClientConnectionDelegate
+	taskRunner internal.EventLoop
 	stopped    atomic.Bool
 
 	writeQueue chan networkMessage
@@ -37,8 +38,11 @@ func (conn *clientConnectionImpl) GetAdressString() string {
 	return conn.connection.RemoteAddr().String()
 }
 
-func (conn *clientConnectionImpl) SetDelegate(delegate internal.ClientConnectionDelegate) {
+func (conn *clientConnectionImpl) SetUp(
+	delegate internal.ClientConnectionDelegate,
+	taskRunner internal.EventLoop) {
 	conn.delegate = delegate
+	conn.taskRunner = taskRunner
 }
 
 func (conn *clientConnectionImpl) StartAsync() {
@@ -99,8 +103,10 @@ func (conn *clientConnectionImpl) readerFunc() {
 		reassembler.ProcessChunk(buf[:size])
 		for reassembler.HasMessage() {
 			msg := reassembler.PopMessage()
-			conn.delegate.ProcessMessage(msg.id, internal.ClientMessageType(msg.msgType), msg.data)
+			conn.taskRunner.PostTask(func() {
+				conn.delegate.ProcessMessage(msg.id, internal.ClientMessageType(msg.msgType), msg.data)
+			})
 		}
 	}
-	conn.delegate.OnDisconnected()
+	conn.taskRunner.PostTask(conn.delegate.OnDisconnected)
 }

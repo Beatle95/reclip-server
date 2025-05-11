@@ -6,9 +6,11 @@ import (
 )
 
 type ClientGroup interface {
+	RunAsync()
 	HandleNewClient(client Client) error
 
 	// ClientDelegate methods:
+	GetTaskRunner() EventLoop
 	OnClientDisconnected(client Client)
 	GetFullSyncData(syncExcluded Client) []ClientData
 	GetClientSyncData(id string) *ClientData
@@ -19,15 +21,21 @@ type ClientGroup interface {
 type clientGroupImpl struct {
 	clientsMapMutex sync.Mutex
 	clients         map[string]Client
+	mainLoop        EventLoop
 }
 
 func CreateClientGroup() ClientGroup {
 	return &clientGroupImpl{
-		clients: make(map[string]Client),
+		clients:  make(map[string]Client),
+		mainLoop: CreateEventLoop(),
 	}
 }
 
 // ClientGroup implementations:
+
+func (cg *clientGroupImpl) RunAsync() {
+	go cg.mainLoop.Run()
+}
 
 func (cg *clientGroupImpl) HandleNewClient(client Client) error {
 	cg.clientsMapMutex.Lock()
@@ -43,6 +51,10 @@ func (cg *clientGroupImpl) HandleNewClient(client Client) error {
 }
 
 // ClientDelegate implementations:
+
+func (cg *clientGroupImpl) GetTaskRunner() EventLoop {
+	return cg.mainLoop
+}
 
 func (cg *clientGroupImpl) OnClientDisconnected(client Client) {
 	cg.clientsMapMutex.Lock()

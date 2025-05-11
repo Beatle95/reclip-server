@@ -3,6 +3,7 @@ package internal
 import "fmt"
 
 type ClientDelegate interface {
+	GetTaskRunner() EventLoop
 	OnClientDisconnected(client Client)
 	GetFullSyncData(syncExcluded Client) []ClientData
 	GetClientSyncData(id string) *ClientData
@@ -43,7 +44,7 @@ func CreateClient(
 		},
 		idCounter: 0,
 	}
-	clientImpl.connection.SetDelegate(&clientImpl)
+	clientImpl.connection.SetUp(&clientImpl, delegate.GetTaskRunner())
 	return &clientImpl
 }
 
