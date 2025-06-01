@@ -44,13 +44,11 @@ func (s *serverImpl) Init() error {
 func (s *serverImpl) Run() {
 	if !s.initialized {
 		log.Fatal("Server is not initialized")
-		return
 	}
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
 		log.Fatal("Error initializing server socket: " + err.Error())
-		return
 	}
 
 	defer listener.Close()
