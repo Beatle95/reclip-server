@@ -8,19 +8,21 @@ type ServerMessageType uint16
 // Client message types.
 const (
 	ClientResponse       ClientMessageType = 0
-	FullSyncRequest      ClientMessageType = 1
-	HostSyncRequest      ClientMessageType = 2
-	HostTextUpdate       ClientMessageType = 3
-	SyncThisHost         ClientMessageType = 4
+	ClientIntroduction   ClientMessageType = 1
+	FullSyncRequest      ClientMessageType = 2
+	HostSyncRequest      ClientMessageType = 3
+	HostTextUpdate       ClientMessageType = 4
+	SyncThisHost         ClientMessageType = 5
 	ClientMessageTypeMax ClientMessageType = SyncThisHost
 )
 
 // Server message types.
 const (
 	ServerResponse       ServerMessageType = 256
-	HostConnected        ServerMessageType = 257
-	HostDisconnected     ServerMessageType = 258
-	TextUpdate           ServerMessageType = 259
-	HostSynced           ServerMessageType = 260
+	ServerIntroduction   ServerMessageType = 257
+	HostConnected        ServerMessageType = 258
+	HostDisconnected     ServerMessageType = 259
+	TextUpdate           ServerMessageType = 260
+	HostSynced           ServerMessageType = 261
 	ServerMessageTypeMax ServerMessageType = HostSynced
 )

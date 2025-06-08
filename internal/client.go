@@ -12,10 +12,9 @@ type ClientDelegate interface {
 }
 
 type Client interface {
-	GetPublicId() string
-	GetName() string
+	IsConnected() bool
 	GetClientData() *ClientData
-	HandleConnection()
+	HandleConnection(connection ClientConnection)
 
 	NotifyClientConnected(id string)
 	NotifyClientDisconnected(id string)
@@ -31,21 +30,17 @@ type clientImpl struct {
 }
 
 func CreateClient(
-	connection ClientConnection,
 	delegate ClientDelegate,
 	publicId string,
 	name string) Client {
-	clientImpl := clientImpl{
-		connection: connection,
-		delegate:   delegate,
+	return &clientImpl{
+		delegate: delegate,
 		data: ClientData{
 			Id:   publicId,
 			Name: name,
 		},
 		idCounter: 0,
 	}
-	clientImpl.connection.SetUp(&clientImpl, delegate.GetTaskRunner())
-	return &clientImpl
 }
 
 // ClientConnectionDelegate implementations:
@@ -67,58 +62,85 @@ func (c *clientImpl) ProcessMessage(id uint64, msgType ClientMessageType, data [
 
 func (c *clientImpl) OnDisconnected() {
 	c.delegate.OnClientDisconnected(c)
+	c.connection = nil
 }
 
 // Client implementations:
 
-func (c *clientImpl) GetPublicId() string {
-	return c.data.Id
-}
-
-func (c *clientImpl) GetName() string {
-	return c.data.Name
+func (c *clientImpl) IsConnected() bool {
+	return c.connection != nil
 }
 
 func (c *clientImpl) GetClientData() *ClientData {
 	return &c.data
 }
 
-func (c *clientImpl) HandleConnection() {
+func (c *clientImpl) HandleConnection(connection ClientConnection) {
+	if c.connection != nil {
+		panic("Resetting connection which was already set")
+	}
+	c.connection = connection
+	c.connection.SetUp(c, c.delegate.GetTaskRunner())
+
+	// Right away schedule introduction sending.
+	serialized := SerializeIntroduction(AppVersion)
+	c.connection.SendMessage(c.idCounter, ServerIntroduction, serialized)
+	c.idCounter++
+
 	// Start connection handling.
-	c.connection.StartAsync()
+	c.connection.StartHandlingAsync()
 }
 
 func (c *clientImpl) NotifyClientConnected(id string) {
+	if c.connection == nil {
+		return
+	}
 	serialized := SerializeClientId(id)
 	c.connection.SendMessage(c.idCounter, HostConnected, serialized)
 	c.idCounter++
 }
 
 func (c *clientImpl) NotifyClientDisconnected(id string) {
+	if c.connection == nil {
+		return
+	}
 	serialized := SerializeClientId(id)
 	c.connection.SendMessage(c.idCounter, HostDisconnected, serialized)
 	c.idCounter++
 }
 
 func (c *clientImpl) NotifyTextAdded(id string, text string) {
+	if c.connection == nil {
+		return
+	}
 	serialized := SerializeTextUpdate(id, text)
 	c.connection.SendMessage(c.idCounter, TextUpdate, serialized)
 	c.idCounter++
 }
 
 func (c *clientImpl) NotifyClientSynced(data *ClientData) {
+	if c.connection == nil {
+		return
+	}
 	serialized := SerializeClientData(data)
 	c.connection.SendMessage(c.idCounter, HostSynced, serialized)
 	c.idCounter++
 }
 
 func (c *clientImpl) processFullSyncRequest(id uint64) {
+	if c.connection == nil {
+		panic("Connection is nil")
+	}
 	otherClientsData := c.delegate.GetFullSyncData(c)
 	serializedd := SerializeSync(c.data, otherClientsData)
 	c.connection.SendMessage(id, ServerResponse, serializedd)
 }
 
 func (c *clientImpl) processHostSyncRequest(id uint64, data []byte) {
+	if c.connection == nil {
+		panic("Connection is nil")
+	}
+
 	clientId, err := DeserializeClientId(data)
 	if err != nil {
 		fmt.Printf("Error parsing client ID: %s", err.Error())
@@ -158,6 +180,9 @@ func (c *clientImpl) processSyncClient(data []byte) {
 }
 
 func (c *clientImpl) reportRequestError(id uint64, errorText string) {
+	if c.connection == nil {
+		panic("Connection is nil")
+	}
 	serialized := SerializeError(errorText)
 	c.connection.SendMessage(id, ServerResponse, serialized)
 }

@@ -1,6 +1,17 @@
 package internal
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type clientIntroductionJson struct {
+	Secret string
+}
+
+type serverIntroductionJson struct {
+	Version string
+}
 
 type syncJson struct {
 	ThisHostData ClientData
@@ -28,6 +39,16 @@ type textJson struct {
 
 type errorJson struct {
 	ErrorText string
+}
+
+func SerializeIntroduction(ver Version) []byte {
+	data, err := json.Marshal(serverIntroductionJson{
+		Version: fmt.Sprintf("%d.%d.%d", ver.major, ver.minor, ver.build_number),
+	})
+	if err != nil {
+		return nil
+	}
+	return data
 }
 
 func SerializeSync(thisData ClientData, otherData []ClientData) []byte {
@@ -80,6 +101,12 @@ func SerializeError(errorText string) []byte {
 		return nil
 	}
 	return data
+}
+
+func DeserializeClientIntroduction(data []byte) (string, error) {
+	var intro clientIntroductionJson
+	err := json.Unmarshal(data, &intro)
+	return intro.Secret, err
 }
 
 func DeserializeClientId(data []byte) (string, error) {

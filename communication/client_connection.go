@@ -3,11 +3,13 @@ package communication
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"internal"
 	"io"
 	"log"
 	"net"
 	"sync/atomic"
+	"time"
 )
 
 const messageHeaderSize = 24
@@ -19,6 +21,7 @@ type networkMessage struct {
 	data    []byte
 }
 
+// TODO: Add better client error notification.
 type clientConnectionImpl struct {
 	connection net.Conn
 	delegate   internal.ClientConnectionDelegate
@@ -31,7 +34,6 @@ type clientConnectionImpl struct {
 func CreateClientConnectionForTesting(conn net.Conn) internal.ClientConnection {
 	return &clientConnectionImpl{
 		connection: conn,
-		delegate:   nil,
 		writeQueue: make(chan networkMessage, 20),
 	}
 }
@@ -39,13 +41,37 @@ func CreateClientConnectionForTesting(conn net.Conn) internal.ClientConnection {
 func createClientConnection(conn net.Conn) clientConnectionImpl {
 	return clientConnectionImpl{
 		connection: conn,
-		delegate:   nil,
 		writeQueue: make(chan networkMessage, 20),
 	}
 }
 
 func (conn *clientConnectionImpl) GetAdressString() string {
 	return conn.connection.RemoteAddr().String()
+}
+
+func (conn *clientConnectionImpl) ReadIntroduction() ([]byte, error) {
+	conn.connection.SetDeadline(time.Now().Add(time.Second * 15))
+	defer conn.connection.SetDeadline(time.Time{})
+
+	lenBuf, err := readNBytes(conn.connection, 8)
+	if err != nil {
+		return nil, err
+	}
+	msgLen := binary.BigEndian.Uint64(lenBuf)
+
+	msgBuf, err := readNBytes(conn.connection, msgLen)
+	if err != nil {
+		return nil, err
+	}
+	msg, err := parseNetworkMessage(msgBuf)
+	if err != nil {
+		return nil, err
+	}
+	if msg.msgType != uint16(internal.ClientIntroduction) {
+		return nil, fmt.Errorf("got wrong message type instead of introduction: %d", msg.msgType)
+	}
+
+	return msg.data, nil
 }
 
 func (conn *clientConnectionImpl) SetUp(
@@ -55,18 +81,17 @@ func (conn *clientConnectionImpl) SetUp(
 	conn.taskRunner = taskRunner
 }
 
-func (conn *clientConnectionImpl) StartAsync() {
+func (conn *clientConnectionImpl) StartHandlingAsync() {
 	conn.stopped.Store(false)
 	go conn.readerFunc()
 	go conn.writerFunc()
 }
 
-func (conn *clientConnectionImpl) StopAsync() {
+func (conn *clientConnectionImpl) DisconnectAndStop() {
 	conn.stopped.Store(true)
 	conn.connection.Close()
 	// We have to add some message in case there is no messages in send queue.
 	conn.writeQueue <- networkMessage{id: 0, msgType: 0, data: nil}
-	// TODO: join goroutines.
 }
 
 func (conn *clientConnectionImpl) SendMessage(
@@ -78,6 +103,9 @@ func (conn *clientConnectionImpl) writerFunc() {
 	var prefixBuffer [messageHeaderSize]byte
 	for !conn.stopped.Load() {
 		msg := <-conn.writeQueue
+		if msg.data == nil {
+			return
+		}
 		len := uint64(16 + len(msg.data))
 		binary.BigEndian.PutUint64(prefixBuffer[:], len)
 		binary.BigEndian.PutUint64(prefixBuffer[8:], msg.id)
@@ -137,4 +165,22 @@ func parseNetworkMessage(data []byte) (networkMessage, error) {
 	// Warning: bytes from 10 to 16 is reserver for future use.
 	result.data = data[16:]
 	return result, nil
+}
+
+func readNBytes(conn net.Conn, n uint64) ([]byte, error) {
+	buffer := make([]byte, n)
+	var totalRead uint64 = 0
+
+	for totalRead < n {
+		bytesRead, err := conn.Read(buffer[totalRead:])
+		if err != nil {
+			return nil, fmt.Errorf("read error: %w", err)
+		}
+		if bytesRead < 0 {
+			return nil, errors.New("read error")
+		}
+		totalRead += uint64(bytesRead)
+	}
+
+	return buffer, nil
 }

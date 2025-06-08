@@ -18,19 +18,17 @@ type MockClient struct {
 	notifyClientSynced       uint32
 }
 
-func (c *MockClient) GetPublicId() string {
-	return c.data.Id
-}
+type MockClientConnection struct{}
 
-func (c *MockClient) GetName() string {
-	return c.data.Name
+func (c *MockClient) IsConnected() bool {
+	return c.handleConnected != 0
 }
 
 func (c *MockClient) GetClientData() *ClientData {
 	return &c.data
 }
 
-func (c *MockClient) HandleConnection() {
+func (c *MockClient) HandleConnection(connection ClientConnection) {
 	c.handleConnected++
 }
 
@@ -53,6 +51,18 @@ func (c *MockClient) NotifyClientSynced(data *ClientData) {
 	c.notifyClientSynced++
 }
 
+func (c *MockClientConnection) GetAdressString() string { return "" }
+
+func (c *MockClientConnection) ReadIntroduction() ([]byte, error) { return nil, nil }
+
+func (c *MockClientConnection) SetUp(delegate ClientConnectionDelegate, taskRunner EventLoop) {}
+
+func (c *MockClientConnection) StartHandlingAsync() {}
+
+func (c *MockClientConnection) DisconnectAndStop() {}
+
+func (c *MockClientConnection) SendMessage(id uint64, msgType ServerMessageType, data []byte) {}
+
 func TestClientGroup(t *testing.T) {
 	client1 := MockClient{
 		data: ClientData{
@@ -74,24 +84,37 @@ func TestClientGroup(t *testing.T) {
 	}
 
 	testGroup := CreateClientGroup()
-	testGroup.HandleNewClient(&client1)
+	testGroup.AddClient(&client1)
+	testGroup.AddClient(&client2)
+	testGroup.AddClient(&client3)
+
+	testGroup.HandleConnection("id1", &MockClientConnection{})
+	testGroup.GetTaskRunner().RunUntilIdle()
 	if client1.handleConnected != 1 {
 		t.Errorf("Handle connected not called for client 1")
 	}
+	if client1.notifyClientConnected != 0 || client2.notifyClientConnected != 1 ||
+		client3.notifyClientConnected != 1 {
+		t.Errorf("Notify connected is not called after 1 connected")
+	}
 
-	testGroup.HandleNewClient(&client2)
+	testGroup.HandleConnection("id2", &MockClientConnection{})
+	testGroup.GetTaskRunner().RunUntilIdle()
 	if client2.handleConnected != 1 {
 		t.Errorf("Handle connected not called for client 2")
 	}
-	if client1.notifyClientConnected != 1 {
+	if client1.notifyClientConnected != 1 || client2.notifyClientConnected != 1 ||
+		client3.notifyClientConnected != 2 {
 		t.Errorf("Notify connected is not called after 2 connected")
 	}
 
-	testGroup.HandleNewClient(&client3)
+	testGroup.HandleConnection("id3", &MockClientConnection{})
+	testGroup.GetTaskRunner().RunUntilIdle()
 	if client3.handleConnected != 1 {
 		t.Errorf("Handle connected not called for client 3")
 	}
-	if client1.notifyClientConnected != 2 || client2.notifyClientConnected != 1 {
+	if client1.notifyClientConnected != 2 || client2.notifyClientConnected != 2 ||
+		client3.notifyClientConnected != 2 {
 		t.Errorf("Notify connected is not called after 3 connected")
 	}
 
@@ -104,7 +127,7 @@ func TestClientGroup(t *testing.T) {
 	sometText := "some added text"
 	client1.data.Data.Text.PushBack(sometText)
 	testGroup.OnTextAdded(&client1, sometText)
-	if len(client2.othersText) != 1 || client2.othersText[0].id != client1.GetPublicId() ||
+	if len(client2.othersText) != 1 || client2.othersText[0].id != client1.GetClientData().Id ||
 		client2.othersText[0].text != sometText {
 		t.Error("Wrong text added processing")
 	}

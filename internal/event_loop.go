@@ -1,12 +1,15 @@
 package internal
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 type EventLoopTask func()
 
 type EventLoop interface {
 	PostTask(task EventLoopTask)
 	Run()
+	RunUntilIdle()
 	Quit()
 }
 
@@ -31,6 +34,17 @@ func (el *eventLoopImpl) Run() {
 	for el.running.Load() {
 		task := <-el.tasks
 		task()
+	}
+}
+
+func (el *eventLoopImpl) RunUntilIdle() {
+	for {
+		select {
+		case task := <-el.tasks:
+			task()
+		default:
+			return
+		}
 	}
 }
 

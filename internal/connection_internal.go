@@ -7,10 +7,11 @@ type ClientConnectionDelegate interface {
 
 type ClientConnection interface {
 	GetAdressString() string
+	ReadIntroduction() ([]byte, error)
 	SetUp(delegate ClientConnectionDelegate, taskRunner EventLoop)
 
-	StartAsync()
-	StopAsync()
+	StartHandlingAsync()
+	DisconnectAndStop()
 
 	SendMessage(id uint64, msgType ServerMessageType, data []byte)
 }

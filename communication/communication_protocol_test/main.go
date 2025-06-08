@@ -68,9 +68,9 @@ func runTest(port int) {
 	}
 
 	clientConnection.SetUp(&testDelegate, testDelegate.eventLoop)
-	clientConnection.StartAsync()
+	clientConnection.StartHandlingAsync()
 	testDelegate.eventLoop.Run()
-	clientConnection.StopAsync()
+	clientConnection.DisconnectAndStop()
 }
 
 func incrementClientMessageType(val internal.ClientMessageType) internal.ClientMessageType {

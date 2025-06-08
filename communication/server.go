@@ -8,22 +8,30 @@ import (
 	"net"
 )
 
+type secretMapping struct {
+	group    internal.ClientGroup
+	publicId string
+}
+
 type Server interface {
 	Init() error
 	Run()
 }
 
 type serverImpl struct {
-	port         uint16
-	clientGroups map[string]internal.ClientGroup
-	initialized  bool
+	clientGroups  []internal.ClientGroup
+	secretMapping map[string]secretMapping
+
+	port        uint16
+	initialized bool
 }
 
 func CreateServer(port uint16) Server {
 	return &serverImpl{
-		port:         port,
-		clientGroups: make(map[string]internal.ClientGroup),
-		initialized:  false,
+		secretMapping: make(map[string]secretMapping),
+
+		port:        port,
+		initialized: false,
 	}
 }
 
@@ -31,7 +39,20 @@ func (s *serverImpl) Init() error {
 	if s.initialized {
 		return errors.New("attempting to initialize server twice")
 	}
-	s.clientGroups[""] = internal.CreateClientGroup()
+
+	// TODO: Add groups config and parse it here.
+	// Right now we will only support single group.
+	new_group := internal.CreateClientGroup()
+	for i := 1; i < 5; i++ {
+		id := fmt.Sprintf("public%d", i)
+		secret := fmt.Sprintf("secret%d", i)
+		name := fmt.Sprintf("name%d", i)
+
+		client := internal.CreateClient(new_group, id, name)
+		new_group.AddClient(client)
+		s.secretMapping[secret] = secretMapping{group: new_group, publicId: id}
+	}
+	s.clientGroups = append(s.clientGroups, new_group)
 
 	for _, group := range s.clientGroups {
 		group.RunAsync()
@@ -60,27 +81,31 @@ func (s *serverImpl) Run() {
 			log.Println(err)
 			continue
 		}
-		HandleUnregisteredClient(conn, s.handleNewConnection)
+		new_conn := createClientConnection(conn)
+		go s.handleNewConnection(&new_conn)
 	}
 }
 
-// Called from another goroutine.
-func (s *serverImpl) handleNewConnection(connection net.Conn, secret string) {
-	group := s.findGroupForClient(secret)
-	if group == nil {
-		connection.Close()
-		fmt.Printf("Disconnecting unknown client: %s", connection.RemoteAddr().String())
+func (s *serverImpl) handleNewConnection(connection *clientConnectionImpl) {
+	secretBuf, err := connection.ReadIntroduction()
+	if err != nil {
+		fmt.Printf("Disconnecting client: %s. Error: %s", connection.GetAdressString(), err.Error())
 		return
 	}
-	connInternal := createClientConnection(connection)
-	client := internal.CreateClient(&connInternal, group, "public", "name")
-	err := group.HandleNewClient(client)
-	if err != nil {
-		fmt.Printf("Unable to add client: %s", connInternal.GetAdressString())
-		connection.Close()
-	}
-}
 
-func (s *serverImpl) findGroupForClient(clientSecret string) internal.ClientGroup {
-	return s.clientGroups[clientSecret]
+	secret, err := internal.DeserializeClientIntroduction(secretBuf)
+	if err != nil {
+		connection.DisconnectAndStop()
+		fmt.Printf("Disconnecting client: %s. Error: %s", connection.GetAdressString(), err.Error())
+		return
+	}
+
+	mapping := s.secretMapping[secret]
+	if mapping.group == nil {
+		connection.DisconnectAndStop()
+		fmt.Printf("Disconnecting unknown client: %s", connection.GetAdressString())
+		return
+	}
+
+	mapping.group.HandleConnection(mapping.publicId, connection)
 }

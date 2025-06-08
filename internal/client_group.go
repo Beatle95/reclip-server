@@ -1,13 +1,11 @@
 package internal
 
-import (
-	"errors"
-	"sync"
-)
+import "fmt"
 
 type ClientGroup interface {
+	AddClient(client Client)
 	RunAsync()
-	HandleNewClient(client Client) error
+	HandleConnection(id string, connection ClientConnection)
 
 	// ClientDelegate methods:
 	GetTaskRunner() EventLoop
@@ -19,35 +17,55 @@ type ClientGroup interface {
 }
 
 type clientGroupImpl struct {
-	clientsMapMutex sync.Mutex
-	clients         map[string]Client
-	mainLoop        EventLoop
+	clients  map[string]Client
+	mainLoop EventLoop
+	started  bool
 }
 
 func CreateClientGroup() ClientGroup {
 	return &clientGroupImpl{
 		clients:  make(map[string]Client),
 		mainLoop: CreateEventLoop(),
+		started:  false,
 	}
 }
 
 // ClientGroup implementations:
 
+func (cg *clientGroupImpl) AddClient(client Client) {
+	if cg.started {
+		panic("Adding client when group run loop was already started")
+	}
+	if cg.clients[client.GetClientData().Id] != nil {
+		panic("Adding client with existing ID")
+	}
+	cg.clients[client.GetClientData().Id] = client
+}
+
 func (cg *clientGroupImpl) RunAsync() {
+	cg.started = true
 	go cg.mainLoop.Run()
 }
 
-func (cg *clientGroupImpl) HandleNewClient(client Client) error {
-	cg.clientsMapMutex.Lock()
-	defer cg.clientsMapMutex.Unlock()
-
-	if cg.clients[client.GetPublicId()] != nil {
-		return errors.New("Client with same ID is already registered")
-	}
-	cg.clients[client.GetPublicId()] = client
-	client.HandleConnection()
-	cg.notifyClientConnected(client.GetPublicId())
-	return nil
+func (cg *clientGroupImpl) HandleConnection(id string, connection ClientConnection) {
+	cg.mainLoop.PostTask(
+		func() {
+			for clientId, client := range cg.clients {
+				if clientId == id {
+					if !client.IsConnected() {
+						client.HandleConnection(connection)
+						cg.notifyClientConnected(client.GetClientData().Id)
+					} else {
+						fmt.Printf("Unable to handle connection from: %s. Client '%s' it already connected.",
+							connection.GetAdressString(), client.GetClientData().Name)
+						connection.DisconnectAndStop()
+					}
+					return
+				}
+			}
+			panic("Unable to find corresponding client inside Group")
+		},
+	)
 }
 
 // ClientDelegate implementations:
@@ -57,20 +75,13 @@ func (cg *clientGroupImpl) GetTaskRunner() EventLoop {
 }
 
 func (cg *clientGroupImpl) OnClientDisconnected(client Client) {
-	cg.clientsMapMutex.Lock()
-	defer cg.clientsMapMutex.Unlock()
-
-	cg.clients[client.GetPublicId()] = nil
-	cg.notifyClientDisconnected(client.GetPublicId())
+	cg.notifyClientDisconnected(client.GetClientData().Id)
 }
 
 func (cg *clientGroupImpl) GetFullSyncData(syncExcluded Client) []ClientData {
-	cg.clientsMapMutex.Lock()
-	defer cg.clientsMapMutex.Unlock()
-
 	var resultData []ClientData
 	for clientId, clientValue := range cg.clients {
-		if clientId == syncExcluded.GetPublicId() {
+		if clientId == syncExcluded.GetClientData().Id {
 			continue
 		}
 		resultData = append(resultData, *clientValue.GetClientData())
@@ -79,9 +90,6 @@ func (cg *clientGroupImpl) GetFullSyncData(syncExcluded Client) []ClientData {
 }
 
 func (cg *clientGroupImpl) GetClientSyncData(id string) *ClientData {
-	cg.clientsMapMutex.Lock()
-	defer cg.clientsMapMutex.Unlock()
-
 	for clientId, clientValue := range cg.clients {
 		if clientId == id {
 			return clientValue.GetClientData()
@@ -91,14 +99,10 @@ func (cg *clientGroupImpl) GetClientSyncData(id string) *ClientData {
 }
 
 func (cg *clientGroupImpl) OnTextAdded(client Client, text string) {
-	cg.clientsMapMutex.Lock()
-	defer cg.clientsMapMutex.Unlock()
-	cg.notifyTextAdded(client.GetPublicId(), text)
+	cg.notifyTextAdded(client.GetClientData().Id, text)
 }
 
 func (cg *clientGroupImpl) OnClientSynced(client Client) {
-	cg.clientsMapMutex.Lock()
-	defer cg.clientsMapMutex.Unlock()
 	cg.notifyClientSynced(client.GetClientData())
 }
 
