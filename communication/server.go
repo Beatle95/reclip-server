@@ -15,6 +15,7 @@ type secretMapping struct {
 
 type Server interface {
 	Init() error
+	InitForTesting(clients_count int) error
 	Run()
 }
 
@@ -44,6 +45,31 @@ func (s *serverImpl) Init() error {
 	// Right now we will only support single group.
 	new_group := internal.CreateClientGroup()
 	for i := 1; i < 5; i++ {
+		id := fmt.Sprintf("public%d", i)
+		secret := fmt.Sprintf("secret%d", i)
+		name := fmt.Sprintf("name%d", i)
+
+		client := internal.CreateClient(new_group, id, name)
+		new_group.AddClient(client)
+		s.secretMapping[secret] = secretMapping{group: new_group, publicId: id}
+	}
+	s.clientGroups = append(s.clientGroups, new_group)
+
+	for _, group := range s.clientGroups {
+		group.RunAsync()
+	}
+
+	s.initialized = true
+	return nil
+}
+
+func (s *serverImpl) InitForTesting(clients_count int) error {
+	if s.initialized {
+		return errors.New("attempting to initialize server twice")
+	}
+
+	new_group := internal.CreateClientGroup()
+	for i := 1; i <= clients_count; i++ {
 		id := fmt.Sprintf("public%d", i)
 		secret := fmt.Sprintf("secret%d", i)
 		name := fmt.Sprintf("name%d", i)

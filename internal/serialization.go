@@ -6,7 +6,7 @@ import (
 )
 
 type clientIntroductionJson struct {
-	Secret string
+	ClientSecretKey string
 }
 
 type serverIntroductionJson struct {
@@ -14,8 +14,8 @@ type serverIntroductionJson struct {
 }
 
 type syncJson struct {
-	ThisHostData ClientData
-	OtherData    []ClientData
+	ThisHostData clientJson
+	OtherData    []clientJson
 }
 
 type clientJson struct {
@@ -52,9 +52,14 @@ func SerializeIntroduction(ver Version) []byte {
 }
 
 func SerializeSync(thisData ClientData, otherData []ClientData) []byte {
+	otherDataJson := make([]clientJson, len(otherData))
+	for index, elem := range otherData {
+		otherDataJson[index] = clientDataToJsonData(&elem)
+	}
+
 	data, err := json.Marshal(syncJson{
-		ThisHostData: thisData,
-		OtherData:    otherData,
+		ThisHostData: clientDataToJsonData(&thisData),
+		OtherData:    otherDataJson,
 	})
 	if err != nil {
 		return nil
@@ -63,16 +68,7 @@ func SerializeSync(thisData ClientData, otherData []ClientData) []byte {
 }
 
 func SerializeClientData(clientData *ClientData) []byte {
-	client := clientJson{
-		ClientId:   clientData.Id,
-		ClientName: clientData.Name,
-		TextData:   make([]string, clientData.Data.Text.Len()),
-	}
-	for i := 0; i < clientData.Data.Text.Len(); i++ {
-		client.TextData[i] = clientData.Data.Text.At(i)
-	}
-
-	data, err := json.Marshal(client)
+	data, err := json.Marshal(clientDataToJsonData(clientData))
 	if err != nil {
 		return nil
 	}
@@ -106,7 +102,7 @@ func SerializeError(errorText string) []byte {
 func DeserializeClientIntroduction(data []byte) (string, error) {
 	var intro clientIntroductionJson
 	err := json.Unmarshal(data, &intro)
-	return intro.Secret, err
+	return intro.ClientSecretKey, err
 }
 
 func DeserializeClientId(data []byte) (string, error) {
@@ -132,4 +128,16 @@ func DeserializeClientData(data []byte) (ClientData, error) {
 		clientData.Data.Text.PushBack(val)
 	}
 	return clientData, err
+}
+
+func clientDataToJsonData(clientData *ClientData) clientJson {
+	client := clientJson{
+		ClientId:   clientData.Id,
+		ClientName: clientData.Name,
+		TextData:   make([]string, clientData.Data.Text.Len()),
+	}
+	for i := 0; i < clientData.Data.Text.Len(); i++ {
+		client.TextData[i] = clientData.Data.Text.At(i)
+	}
+	return client
 }

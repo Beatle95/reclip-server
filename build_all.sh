@@ -1,2 +1,2 @@
 go build -o ${PWD}/out/server
-go build -C communication/communication_protocol_test -o ${PWD}/out/communication_protocol_test
+go build -C client_integration_tests -o ${PWD}/out/client_integration_tests

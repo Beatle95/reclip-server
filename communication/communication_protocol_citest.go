@@ -1,13 +1,10 @@
-package main
+package communication
 
 import (
-	"communication"
 	"fmt"
 	"internal"
 	"log"
 	"net"
-	"os"
-	"strconv"
 )
 
 type TestConnectionDelegate struct {
@@ -15,6 +12,34 @@ type TestConnectionDelegate struct {
 	eventLoop     internal.EventLoop
 	clientMsgType internal.ClientMessageType
 	serverMsgType internal.ServerMessageType
+}
+
+func RunCommunicationProtocolTest(port uint16) {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Fatal("Error initializing server socket: " + err.Error())
+	}
+	defer listener.Close()
+
+	conn, err := listener.Accept()
+	log.Printf("Client %v connected.", conn.RemoteAddr())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	clientConnection := CreateClientConnectionForTesting(conn)
+	testDelegate := TestConnectionDelegate{
+		connection:    clientConnection,
+		eventLoop:     internal.CreateEventLoop(),
+		clientMsgType: internal.ClientResponse,
+		serverMsgType: internal.ServerResponse,
+	}
+
+	clientConnection.SetUp(&testDelegate, testDelegate.eventLoop)
+	clientConnection.StartHandlingAsync()
+	testDelegate.eventLoop.Run()
+	clientConnection.DisconnectAndStop()
 }
 
 func (test *TestConnectionDelegate) OnDisconnected() {
@@ -29,48 +54,6 @@ func (test *TestConnectionDelegate) ProcessMessage(
 	test.connection.SendMessage(id, test.serverMsgType, data)
 	test.clientMsgType = incrementClientMessageType(test.clientMsgType)
 	test.serverMsgType = incrementServerMessageType(test.serverMsgType)
-}
-
-func main() {
-	args := os.Args[1:]
-	if len(args) == 0 {
-		log.Fatal("Usage: communication_protocol_test <port>")
-	}
-
-	port, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Unable parse port: %s", err.Error())
-	}
-
-	runTest(port)
-}
-
-func runTest(port int) {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatal("Error initializing server socket: " + err.Error())
-	}
-	defer listener.Close()
-
-	conn, err := listener.Accept()
-	log.Printf("Client %v connected.", conn.RemoteAddr())
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	clientConnection := communication.CreateClientConnectionForTesting(conn)
-	testDelegate := TestConnectionDelegate{
-		connection:    clientConnection,
-		eventLoop:     internal.CreateEventLoop(),
-		clientMsgType: internal.ClientResponse,
-		serverMsgType: internal.ServerResponse,
-	}
-
-	clientConnection.SetUp(&testDelegate, testDelegate.eventLoop)
-	clientConnection.StartHandlingAsync()
-	testDelegate.eventLoop.Run()
-	clientConnection.DisconnectAndStop()
 }
 
 func incrementClientMessageType(val internal.ClientMessageType) internal.ClientMessageType {
