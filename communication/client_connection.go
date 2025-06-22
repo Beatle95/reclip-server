@@ -141,6 +141,12 @@ func (conn *clientConnectionImpl) readerFunc() {
 		}
 
 		reassembler.ProcessChunk(buf[:size])
+		if reassembler.IsBroken() {
+			conn.connection.Close()
+			conn.stopped.Store(true)
+			break
+		}
+
 		for reassembler.HasMessage() {
 			msg, err := parseNetworkMessage(reassembler.PopMessage())
 			if err == nil {

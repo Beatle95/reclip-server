@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"container/list"
 	"encoding/binary"
+	"fmt"
 )
 
 const maxMessageLen = 1 * 1024 * 1024 * 1024
@@ -13,6 +14,7 @@ type messageReassembler struct {
 	buffer          bytes.Buffer
 	nextMessageSize uint64
 	readingLen      bool
+	isBroken        bool
 }
 
 func createMessageReassembler() messageReassembler {
@@ -20,19 +22,30 @@ func createMessageReassembler() messageReassembler {
 		messages:        list.New(),
 		nextMessageSize: 0,
 		readingLen:      true,
+		isBroken:        false,
 	}
 }
 
 func (a *messageReassembler) ProcessChunk(data []byte) {
-	// TODO: Protect from buffer overflow.
+	if a.isBroken {
+		panic("Trying to process chunk after reassembler is broken")
+	}
+
 	a.buffer.Write(data)
-	continue_process := true
-	for continue_process {
+	continueProcess := true
+	for continueProcess {
 		if a.readingLen {
-			continue_process = a.tryReadLen()
+			continueProcess = a.tryReadLen()
 		} else {
-			continue_process = a.tryReadMessage()
+			continueProcess = a.tryReadMessage()
 		}
+	}
+
+	if a.buffer.Len() > maxMessageLen {
+		// Buffer leftover length is constrained by message lendgth, which is constrained by
+		// maxMessageLen, so this situation must not happen.
+		a.isBroken = true
+		fmt.Printf("buffer leftover length was too long '%d'", a.buffer.Len())
 	}
 }
 
@@ -42,6 +55,10 @@ func (a *messageReassembler) HasMessage() bool {
 
 func (a *messageReassembler) PopMessage() []byte {
 	return a.messages.Remove(a.messages.Front()).([]byte)
+}
+
+func (a *messageReassembler) IsBroken() bool {
+	return a.isBroken
 }
 
 // Returns true if length was read.
@@ -56,8 +73,8 @@ func (a *messageReassembler) tryReadLen() bool {
 	}
 	a.nextMessageSize = binary.BigEndian.Uint64(lenBuf)
 	if a.nextMessageSize > maxMessageLen {
-		// TODO: Enter broken state.
-		panic("We have to process this")
+		a.isBroken = true
+		return false
 	}
 	a.readingLen = false
 	return true

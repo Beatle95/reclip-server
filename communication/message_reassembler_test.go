@@ -59,6 +59,8 @@ func TestCorrectMessages(t *testing.T) {
 	}
 }
 
+// TODO: Test zero len message. Test too long message.
+
 func createTestBuffer(desired_data_len uint64) TestData {
 	data := make([]byte, desired_data_len+8)
 	binary.BigEndian.PutUint64(data, desired_data_len)
