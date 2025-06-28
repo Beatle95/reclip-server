@@ -14,7 +14,7 @@ type secretMapping struct {
 }
 
 type Server interface {
-	Init() error
+	Init(*internal.Config) error
 	InitForTesting(clients_count int) error
 	Run()
 }
@@ -36,24 +36,25 @@ func CreateServer(port uint16) Server {
 	}
 }
 
-func (s *serverImpl) Init() error {
+func (s *serverImpl) Init(config *internal.Config) error {
 	if s.initialized {
 		return errors.New("attempting to initialize server twice")
 	}
 
-	// TODO: Add groups config and parse it here.
-	// Right now we will only support single group.
-	new_group := internal.CreateClientGroup()
-	for i := 1; i < 5; i++ {
-		id := fmt.Sprintf("public%d", i)
-		secret := fmt.Sprintf("secret%d", i)
-		name := fmt.Sprintf("name%d", i)
-
-		client := internal.CreateClient(new_group, id, name)
-		new_group.AddClient(client)
-		s.secretMapping[secret] = secretMapping{group: new_group, publicId: id}
+	for _, groupConfig := range config.Groups {
+		newGroup := internal.CreateClientGroup()
+		for _, clientConfig := range groupConfig.Clients {
+			client := internal.CreateClient(newGroup, clientConfig.PublicId, clientConfig.Name)
+			if _, exists := s.secretMapping[clientConfig.Secret]; exists {
+				panic("Initialization error, there was multiple clients " +
+					"with the same secret ID in the config")
+			}
+			s.secretMapping[clientConfig.Secret] = secretMapping{
+				group: newGroup, publicId: clientConfig.PublicId}
+			newGroup.AddClient(client)
+			s.clientGroups = append(s.clientGroups, newGroup)
+		}
 	}
-	s.clientGroups = append(s.clientGroups, new_group)
 
 	for _, group := range s.clientGroups {
 		group.RunAsync()
@@ -115,21 +116,21 @@ func (s *serverImpl) Run() {
 func (s *serverImpl) handleNewConnection(connection *clientConnectionImpl) {
 	secretBuf, err := connection.ReadIntroduction()
 	if err != nil {
-		fmt.Printf("Disconnecting client: %s. Error: %s", connection.GetAdressString(), err.Error())
+		log.Printf("Disconnecting client: %s. Error: %s", connection.GetAdressString(), err.Error())
 		return
 	}
 
 	secret, err := internal.DeserializeClientIntroduction(secretBuf)
 	if err != nil {
 		connection.DisconnectAndStop()
-		fmt.Printf("Disconnecting client: %s. Error: %s", connection.GetAdressString(), err.Error())
+		log.Printf("Disconnecting client: %s. Error: %s", connection.GetAdressString(), err.Error())
 		return
 	}
 
-	mapping := s.secretMapping[secret]
-	if mapping.group == nil {
+	mapping, mappingExists := s.secretMapping[secret]
+	if !mappingExists {
 		connection.DisconnectAndStop()
-		fmt.Printf("Disconnecting unknown client: %s", connection.GetAdressString())
+		log.Printf("Disconnecting unknown client: %s", connection.GetAdressString())
 		return
 	}
 

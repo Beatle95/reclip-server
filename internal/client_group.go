@@ -36,7 +36,7 @@ func (cg *clientGroupImpl) AddClient(client Client) {
 	if cg.started {
 		panic("Adding client when group run loop was already started")
 	}
-	if cg.clients[client.GetClientData().Id] != nil {
+	if _, exists := cg.clients[client.GetClientData().Id]; exists {
 		panic("Adding client with existing ID")
 	}
 	cg.clients[client.GetClientData().Id] = client
