@@ -3,16 +3,19 @@ package internal
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
-	"slices"
-	"strconv"
-	"strings"
 )
 
 const AppName = "reclip-server"
 const DefaultServerPort = 41286
+const help = "\nServer side part of 'Reclip' software. \n" +
+	"Arguments: \n" +
+	"\t--port=[PORT] (-p [PORT]) - run server on port [PORT] (default value is 8880)\n" +
+	"\t--app-data-dir=[PATH] - override application data directory\n" +
+	"\t--help (-h) - show this help\n\n"
 
 type AppSettings struct {
 	Port       uint16
@@ -33,51 +36,28 @@ type Config struct {
 	Groups []GroupConfig
 }
 
-// TODO: Parse using flags package.
+func ParseCmdArgs() (AppSettings, error) {
+	var port int
+	var app_data_dir string
 
-func HasHelpArg() bool {
-	help_pos := slices.IndexFunc(os.Args[1:],
-		func(arg string) bool { return arg == "--help" || arg == "-h" })
-	return help_pos > 0
-}
-
-func ParseMainArgs(args []string) (AppSettings, error) {
-	var settings = AppSettings{Port: DefaultServerPort}
-	for i := 0; i < len(args); i++ {
-		is_port := false
-		var port_str string
-		if strings.HasPrefix(args[i], "--port=") {
-			is_port = true
-			port_str = args[i][7:]
-		} else if args[i] == "-p" {
-			i++
-			is_port = true
-			if i >= len(args) {
-				return settings, errors.New("-p option must be followed by a port number")
-			}
-			port_str = args[i]
-		} else if strings.HasPrefix(args[i], "--app-data-dir=") {
-			settings.AppDataDir = args[i][15:]
-		}
-
-		if is_port {
-			value, err := strconv.ParseUint(port_str, 10, 16)
-			if err != nil {
-				return settings, errors.New("unable to parse port value")
-			}
-			settings.Port = uint16(value)
-		}
+	flag.IntVar(&port, "port", DefaultServerPort, "Run server on port [PORT] (default value is 8880)")
+	flag.IntVar(&port, "p", DefaultServerPort, "Run server on port [PORT] (default value is 8880)")
+	flag.StringVar(&app_data_dir, "app-data-dir", "", "Override application data directory")
+	flag.Usage = func() {
+		fmt.Fprint(flag.CommandLine.Output(), help)
 	}
-	return settings, nil
+	flag.Parse()
+
+	return AppSettings{Port: uint16(port), AppDataDir: app_data_dir}, nil
 }
 
-func InitAppDataDir(arsgPath string) (string, error) {
+func InitAppDataDir(argsPath string) (string, error) {
 	var path string
-	if len(arsgPath) == 0 {
+	if len(argsPath) == 0 {
 		defaultPath, _ := os.UserConfigDir()
 		path = fmt.Sprintf("%s/%s", defaultPath, AppName)
 	} else {
-		path = arsgPath
+		path = argsPath
 	}
 
 	stat, err := os.Stat(path)
