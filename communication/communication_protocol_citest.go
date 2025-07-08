@@ -1,10 +1,10 @@
 package communication
 
 import (
+	"crypto/tls"
 	"fmt"
 	"internal"
 	"log"
-	"net"
 )
 
 type TestConnectionDelegate struct {
@@ -15,17 +15,23 @@ type TestConnectionDelegate struct {
 }
 
 func RunCommunicationProtocolTest(port uint16) {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	config, err := LoadTestTlsConfig()
+	if err != nil {
+		log.Fatalf("Unable to initialize test tls config: %s", err.Error())
+	}
+
+	log.Printf("Starting listening on port %d", port)
+	listener, err := tls.Listen("tcp", fmt.Sprintf(":%d", port), config)
 	if err != nil {
 		log.Fatal("Error initializing server socket: " + err.Error())
 	}
 	defer listener.Close()
 
 	conn, err := listener.Accept()
-	log.Printf("Client %v connected.", conn.RemoteAddr())
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("Client %v connected.", conn.RemoteAddr())
 	defer conn.Close()
 
 	clientConnection := CreateClientConnectionForTesting(conn)

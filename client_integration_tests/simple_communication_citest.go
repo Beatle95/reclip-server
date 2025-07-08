@@ -3,17 +3,14 @@ package main
 import (
 	"bufio"
 	"communication"
-	"fmt"
 	"log"
 	"os"
 )
 
 func RunSimpleCommunicationTest(port uint16) {
-	server := communication.CreateServer(port)
-	err := server.InitForTesting(3)
+	server, err := communication.CreateServerForTesting(port, 3)
 	if err != nil {
-		fmt.Printf("Unable to initialize the server: '%s'", err.Error())
-		return
+		log.Fatalf("Unable to initialize the server: '%s'", err.Error())
 	}
 	go waitStop()
 	server.Run()

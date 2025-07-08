@@ -35,8 +35,7 @@ func main() {
 		log.Fatalf("Error parsing server config: '%s'", err.Error())
 	}
 
-	server := communication.CreateServer(settings.Port)
-	err = server.Init(config)
+	server, err := communication.CreateServer(settings.AppDataDir, settings.Port, config)
 	if err != nil {
 		log.Fatalf("Unable to initialize the server: '%s'", err.Error())
 	}

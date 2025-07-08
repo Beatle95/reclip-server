@@ -19,19 +19,21 @@ type AppSettings struct {
 	AppDataDir string
 }
 
-type GroupConfig struct {
-	Clients []ClientConfig
-}
-
 type ClientConfig struct {
 	Secret   string
 	PublicId string
 	Name     string
 }
 
+type GroupConfig struct {
+	Clients []ClientConfig
+}
+
 type Config struct {
 	Groups []GroupConfig
 }
+
+// TODO: Parse using flags package.
 
 func HasHelpArg() bool {
 	help_pos := slices.IndexFunc(os.Args[1:],
