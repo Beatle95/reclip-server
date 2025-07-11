@@ -2,6 +2,7 @@ package communication
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"internal"
 	"log"
@@ -17,13 +18,13 @@ type secretMapping struct {
 type Server struct {
 	tlsConfig     *tls.Config
 	clientGroups  []internal.ClientGroup
-	secretMapping map[string]secretMapping
+	secretMapping map[[64]byte]secretMapping
 	port          uint16
 }
 
 func CreateServer(appDataDir string, port uint16, appConfig *internal.Config) (*Server, error) {
 	result := &Server{
-		secretMapping: make(map[string]secretMapping),
+		secretMapping: make(map[[64]byte]secretMapping),
 		port:          port,
 	}
 
@@ -36,12 +37,18 @@ func CreateServer(appDataDir string, port uint16, appConfig *internal.Config) (*
 	for _, groupConfig := range appConfig.Groups {
 		newGroup := internal.CreateClientGroup()
 		for _, clientConfig := range groupConfig.Clients {
+			decodedSecret, err := getSecret(clientConfig.Secret)
+			if err != nil {
+				return nil, err
+			}
+
 			client := internal.CreateClient(newGroup, clientConfig.PublicId, clientConfig.Name)
-			if _, exists := result.secretMapping[clientConfig.Secret]; exists {
+			if _, exists := result.secretMapping[decodedSecret]; exists {
 				return nil, fmt.Errorf("initialization error, there was multiple clients " +
 					"with the same secret ID in the config")
 			}
-			result.secretMapping[clientConfig.Secret] = secretMapping{
+
+			result.secretMapping[decodedSecret] = secretMapping{
 				group: newGroup, publicId: clientConfig.PublicId}
 			newGroup.AddClient(client)
 			result.clientGroups = append(result.clientGroups, newGroup)
@@ -53,7 +60,7 @@ func CreateServer(appDataDir string, port uint16, appConfig *internal.Config) (*
 
 func CreateServerForTesting(port uint16, clients_count int) (*Server, error) {
 	result := &Server{
-		secretMapping: make(map[string]secretMapping),
+		secretMapping: make(map[[64]byte]secretMapping),
 		port:          port,
 	}
 
@@ -66,7 +73,8 @@ func CreateServerForTesting(port uint16, clients_count int) (*Server, error) {
 	new_group := internal.CreateClientGroup()
 	for i := 1; i <= clients_count; i++ {
 		id := uint64(i)
-		secret := fmt.Sprintf("secret%d", i)
+		var secret [64]byte
+		secret[0] = byte(i)
 		name := fmt.Sprintf("name%d", i)
 
 		client := internal.CreateClient(new_group, id, name)
@@ -109,13 +117,15 @@ func (s *Server) handleNewConnection(connection *clientConnectionImpl) {
 		return
 	}
 
-	secret, err := internal.DeserializeClientIntroduction(secretBuf)
-	if err != nil {
+	if len(secretBuf) != 64 {
 		connection.DisconnectAndStop()
-		log.Printf("Disconnecting client: %s. Error: %s", connection.GetAdressString(), err.Error())
+		log.Printf("Disconnecting client: %s. Wrong secret format received",
+			connection.GetAdressString())
 		return
 	}
 
+	var secret [64]byte
+	copy(secret[:], secretBuf)
 	mapping, mappingExists := s.secretMapping[secret]
 	if !mappingExists {
 		connection.DisconnectAndStop()
@@ -162,4 +172,14 @@ func certToConfig(cert *tls.Certificate) *tls.Config {
 		},
 	}
 	return config
+}
+
+func getSecret(secretStr string) ([64]byte, error) {
+	var result [64]byte
+	decodedSecret, err := base64.StdEncoding.DecodeString(secretStr)
+	if err != nil {
+		return result, fmt.Errorf("unable to decode secret: %s", secretStr)
+	}
+	copy(result[:], decodedSecret)
+	return result, nil
 }

@@ -5,10 +5,6 @@ import (
 	"fmt"
 )
 
-type clientIntroductionJson struct {
-	ClientSecretKey string
-}
-
 type serverIntroductionJson struct {
 	Version string
 }
@@ -97,12 +93,6 @@ func SerializeError(errorText string) []byte {
 		return nil
 	}
 	return data
-}
-
-func DeserializeClientIntroduction(data []byte) (string, error) {
-	var intro clientIntroductionJson
-	err := json.Unmarshal(data, &intro)
-	return intro.ClientSecretKey, err
 }
 
 func DeserializeClientId(data []byte) (uint64, error) {
