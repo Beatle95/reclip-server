@@ -24,7 +24,7 @@ type AppSettings struct {
 
 type ClientConfig struct {
 	Secret   string
-	PublicId string
+	PublicId uint64
 	Name     string
 }
 

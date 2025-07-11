@@ -5,7 +5,7 @@ import (
 )
 
 type OthersTextData struct {
-	id   string
+	id   uint64
 	text string
 }
 
@@ -32,15 +32,15 @@ func (c *MockClient) HandleConnection(connection ClientConnection) {
 	c.handleConnected++
 }
 
-func (c *MockClient) NotifyClientConnected(id string) {
+func (c *MockClient) NotifyClientConnected(id uint64) {
 	c.notifyClientConnected++
 }
 
-func (c *MockClient) NotifyClientDisconnected(id string) {
+func (c *MockClient) NotifyClientDisconnected(id uint64) {
 	c.notifyClientDisconnected++
 }
 
-func (c *MockClient) NotifyTextAdded(id string, text string) {
+func (c *MockClient) NotifyTextAdded(id uint64, text string) {
 	if c.othersText == nil {
 		c.othersText = make([]OthersTextData, 0)
 	}
@@ -66,19 +66,19 @@ func (c *MockClientConnection) SendMessage(id uint64, msgType ServerMessageType,
 func TestClientGroup(t *testing.T) {
 	client1 := MockClient{
 		data: ClientData{
-			Id:   "id1",
+			Id:   1,
 			Name: "name1",
 		},
 	}
 	client2 := MockClient{
 		data: ClientData{
-			Id:   "id2",
+			Id:   2,
 			Name: "name2",
 		},
 	}
 	client3 := MockClient{
 		data: ClientData{
-			Id:   "id3",
+			Id:   3,
 			Name: "name3",
 		},
 	}
@@ -88,7 +88,7 @@ func TestClientGroup(t *testing.T) {
 	testGroup.AddClient(&client2)
 	testGroup.AddClient(&client3)
 
-	testGroup.HandleConnection("id1", &MockClientConnection{})
+	testGroup.HandleConnection(1, &MockClientConnection{})
 	testGroup.GetTaskRunner().RunUntilIdle()
 	if client1.handleConnected != 1 {
 		t.Errorf("Handle connected not called for client 1")
@@ -98,7 +98,7 @@ func TestClientGroup(t *testing.T) {
 		t.Errorf("Notify connected is not called after 1 connected")
 	}
 
-	testGroup.HandleConnection("id2", &MockClientConnection{})
+	testGroup.HandleConnection(2, &MockClientConnection{})
 	testGroup.GetTaskRunner().RunUntilIdle()
 	if client2.handleConnected != 1 {
 		t.Errorf("Handle connected not called for client 2")
@@ -108,7 +108,7 @@ func TestClientGroup(t *testing.T) {
 		t.Errorf("Notify connected is not called after 2 connected")
 	}
 
-	testGroup.HandleConnection("id3", &MockClientConnection{})
+	testGroup.HandleConnection(3, &MockClientConnection{})
 	testGroup.GetTaskRunner().RunUntilIdle()
 	if client3.handleConnected != 1 {
 		t.Errorf("Handle connected not called for client 3")
@@ -133,8 +133,11 @@ func TestClientGroup(t *testing.T) {
 	}
 
 	syncData := testGroup.GetFullSyncData(&client3)
-	if !IsEqual(syncData[0], client1.data) || !IsEqual(syncData[1], client2.data) {
-		t.Errorf("Bad full sync response, sync data was: %v", syncData)
+	if !IsEqual(syncData[0], client1.data) {
+		t.Errorf("Bad full sync response, sync[0] data was: %v", syncData[0])
+	}
+	if !IsEqual(syncData[1], client2.data) {
+		t.Errorf("Bad full sync response, sync[1] data was: %v", syncData[1])
 	}
 
 	testGroup.OnClientDisconnected(&client3)

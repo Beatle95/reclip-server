@@ -5,26 +5,26 @@ import "fmt"
 type ClientGroup interface {
 	AddClient(client Client)
 	RunAsync()
-	HandleConnection(id string, connection ClientConnection)
+	HandleConnection(id uint64, connection ClientConnection)
 
 	// ClientDelegate methods:
 	GetTaskRunner() EventLoop
 	OnClientDisconnected(client Client)
 	GetFullSyncData(syncExcluded Client) []ClientData
-	GetClientSyncData(id string) *ClientData
+	GetClientSyncData(id uint64) *ClientData
 	OnTextAdded(client Client, text string)
 	OnClientSynced(client Client)
 }
 
 type clientGroupImpl struct {
-	clients  map[string]Client
+	clients  map[uint64]Client
 	mainLoop EventLoop
 	started  bool
 }
 
 func CreateClientGroup() ClientGroup {
 	return &clientGroupImpl{
-		clients:  make(map[string]Client),
+		clients:  make(map[uint64]Client),
 		mainLoop: CreateEventLoop(),
 		started:  false,
 	}
@@ -47,7 +47,7 @@ func (cg *clientGroupImpl) RunAsync() {
 	go cg.mainLoop.Run()
 }
 
-func (cg *clientGroupImpl) HandleConnection(id string, connection ClientConnection) {
+func (cg *clientGroupImpl) HandleConnection(id uint64, connection ClientConnection) {
 	cg.mainLoop.PostTask(
 		func() {
 			for clientId, client := range cg.clients {
@@ -89,7 +89,7 @@ func (cg *clientGroupImpl) GetFullSyncData(syncExcluded Client) []ClientData {
 	return resultData
 }
 
-func (cg *clientGroupImpl) GetClientSyncData(id string) *ClientData {
+func (cg *clientGroupImpl) GetClientSyncData(id uint64) *ClientData {
 	for clientId, clientValue := range cg.clients {
 		if clientId == id {
 			return clientValue.GetClientData()
@@ -106,7 +106,7 @@ func (cg *clientGroupImpl) OnClientSynced(client Client) {
 	cg.notifyClientSynced(client.GetClientData())
 }
 
-func (cg *clientGroupImpl) notifyClientConnected(id string) {
+func (cg *clientGroupImpl) notifyClientConnected(id uint64) {
 	for clientId, clientValue := range cg.clients {
 		if clientId == id {
 			continue
@@ -115,7 +115,7 @@ func (cg *clientGroupImpl) notifyClientConnected(id string) {
 	}
 }
 
-func (cg *clientGroupImpl) notifyClientDisconnected(id string) {
+func (cg *clientGroupImpl) notifyClientDisconnected(id uint64) {
 	for clientId, clientValue := range cg.clients {
 		if clientId == id {
 			continue
@@ -124,7 +124,7 @@ func (cg *clientGroupImpl) notifyClientDisconnected(id string) {
 	}
 }
 
-func (cg *clientGroupImpl) notifyTextAdded(id string, text string) {
+func (cg *clientGroupImpl) notifyTextAdded(id uint64, text string) {
 	for clientId, clientValue := range cg.clients {
 		if clientId == id {
 			continue

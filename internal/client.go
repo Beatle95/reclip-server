@@ -6,7 +6,7 @@ type ClientDelegate interface {
 	GetTaskRunner() EventLoop
 	OnClientDisconnected(client Client)
 	GetFullSyncData(syncExcluded Client) []ClientData
-	GetClientSyncData(id string) *ClientData
+	GetClientSyncData(id uint64) *ClientData
 	OnTextAdded(client Client, text string)
 	OnClientSynced(client Client)
 }
@@ -16,9 +16,9 @@ type Client interface {
 	GetClientData() *ClientData
 	HandleConnection(connection ClientConnection)
 
-	NotifyClientConnected(id string)
-	NotifyClientDisconnected(id string)
-	NotifyTextAdded(id string, text string)
+	NotifyClientConnected(id uint64)
+	NotifyClientDisconnected(id uint64)
+	NotifyTextAdded(id uint64, text string)
 	NotifyClientSynced(data *ClientData)
 }
 
@@ -31,7 +31,7 @@ type clientImpl struct {
 
 func CreateClient(
 	delegate ClientDelegate,
-	publicId string,
+	publicId uint64,
 	name string) Client {
 	return &clientImpl{
 		delegate: delegate,
@@ -91,7 +91,7 @@ func (c *clientImpl) HandleConnection(connection ClientConnection) {
 	c.connection.StartHandlingAsync()
 }
 
-func (c *clientImpl) NotifyClientConnected(id string) {
+func (c *clientImpl) NotifyClientConnected(id uint64) {
 	if c.connection == nil {
 		return
 	}
@@ -100,7 +100,7 @@ func (c *clientImpl) NotifyClientConnected(id string) {
 	c.idCounter++
 }
 
-func (c *clientImpl) NotifyClientDisconnected(id string) {
+func (c *clientImpl) NotifyClientDisconnected(id uint64) {
 	if c.connection == nil {
 		return
 	}
@@ -109,7 +109,7 @@ func (c *clientImpl) NotifyClientDisconnected(id string) {
 	c.idCounter++
 }
 
-func (c *clientImpl) NotifyTextAdded(id string, text string) {
+func (c *clientImpl) NotifyTextAdded(id uint64, text string) {
 	if c.connection == nil {
 		return
 	}
@@ -150,7 +150,7 @@ func (c *clientImpl) processHostSyncRequest(id uint64, data []byte) {
 
 	clientData := c.delegate.GetClientSyncData(clientId)
 	if clientData == nil {
-		fmt.Printf("Sync was requested for unknown client %s", clientId)
+		fmt.Printf("Sync was requested for unknown client %d", clientId)
 		c.reportRequestError(id, "Unknown host.")
 		return
 	}

@@ -4,11 +4,11 @@ import (
 	"testing"
 )
 
-const expectedSerialized = "{\"ClientId\":\"id_value\",\"ClientName\":\"name_value\",\"TextData\":[\"text1\",\"text2\"]}"
+const expectedSerialized = "{\"ClientId\":1,\"ClientName\":\"name_value\",\"TextData\":[\"text1\",\"text2\"]}"
 
 func TestSerialization(t *testing.T) {
 	var dataToSerialize ClientData
-	dataToSerialize.Id = "id_value"
+	dataToSerialize.Id = 1
 	dataToSerialize.Name = "name_value"
 	dataToSerialize.Data.Text.PushBack("text1")
 	dataToSerialize.Data.Text.PushBack("text2")

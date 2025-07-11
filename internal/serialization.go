@@ -19,17 +19,17 @@ type syncJson struct {
 }
 
 type clientJson struct {
-	ClientId   string
+	ClientId   uint64
 	ClientName string
 	TextData   []string
 }
 
 type clientIdJson struct {
-	ClientId string
+	ClientId uint64
 }
 
 type textUpdateJson struct {
-	ClientId string
+	ClientId uint64
 	Text     string
 }
 
@@ -75,7 +75,7 @@ func SerializeClientData(clientData *ClientData) []byte {
 	return data
 }
 
-func SerializeClientId(id string) []byte {
+func SerializeClientId(id uint64) []byte {
 	data, err := json.Marshal(clientIdJson{ClientId: id})
 	if err != nil {
 		return nil
@@ -83,7 +83,7 @@ func SerializeClientId(id string) []byte {
 	return data
 }
 
-func SerializeTextUpdate(id string, text string) []byte {
+func SerializeTextUpdate(id uint64, text string) []byte {
 	data, err := json.Marshal(textUpdateJson{ClientId: id, Text: text})
 	if err != nil {
 		return nil
@@ -105,7 +105,7 @@ func DeserializeClientIntroduction(data []byte) (string, error) {
 	return intro.ClientSecretKey, err
 }
 
-func DeserializeClientId(data []byte) (string, error) {
+func DeserializeClientId(data []byte) (uint64, error) {
 	var clientId clientIdJson
 	err := json.Unmarshal(data, &clientId)
 	return clientId.ClientId, err

@@ -9,7 +9,7 @@ type ClipboardData struct {
 }
 
 type ClientData struct {
-	Id   string
+	Id   uint64
 	Name string
 	Data ClipboardData
 }

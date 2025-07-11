@@ -11,7 +11,7 @@ import (
 
 type secretMapping struct {
 	group    internal.ClientGroup
-	publicId string
+	publicId uint64
 }
 
 type Server struct {
@@ -65,7 +65,7 @@ func CreateServerForTesting(port uint16, clients_count int) (*Server, error) {
 
 	new_group := internal.CreateClientGroup()
 	for i := 1; i <= clients_count; i++ {
-		id := fmt.Sprintf("public%d", i)
+		id := uint64(i)
 		secret := fmt.Sprintf("secret%d", i)
 		name := fmt.Sprintf("name%d", i)
 
