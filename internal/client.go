@@ -83,7 +83,7 @@ func (c *clientImpl) HandleConnection(connection ClientConnection) {
 	c.connection.SetUp(c, c.delegate.GetTaskRunner())
 
 	// Right away schedule introduction sending.
-	serialized := SerializeIntroduction(AppVersion)
+	serialized := SerializeIntroduction(GetApplicationVersion())
 	c.connection.SendMessage(c.idCounter, ServerIntroduction, serialized)
 	c.idCounter++
 

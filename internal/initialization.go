@@ -39,14 +39,22 @@ type Config struct {
 func ParseCmdArgs() (AppSettings, error) {
 	var port int
 	var app_data_dir string
+	var version bool
 
 	flag.IntVar(&port, "port", DefaultServerPort, "Run server on port [PORT] (default value is 8880)")
 	flag.IntVar(&port, "p", DefaultServerPort, "Run server on port [PORT] (default value is 8880)")
 	flag.StringVar(&app_data_dir, "app-data-dir", "", "Override application data directory")
+	flag.BoolVar(&version, "version", false, "Show version")
+	flag.BoolVar(&version, "v", false, "Show version")
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), help)
 	}
 	flag.Parse()
+
+	if version {
+		fmt.Printf("%s version: %s\n", AppName, GetApplicationVersionString())
+		os.Exit(0)
+	}
 
 	return AppSettings{Port: uint16(port), AppDataDir: app_data_dir}, nil
 }

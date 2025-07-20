@@ -39,7 +39,7 @@ type errorJson struct {
 
 func SerializeIntroduction(ver Version) []byte {
 	data, err := json.Marshal(serverIntroductionJson{
-		Version: fmt.Sprintf("%d.%d.%d", ver.major, ver.minor, ver.build_number),
+		Version: fmt.Sprintf("%d.%d.%d", ver.major, ver.minor, ver.patch),
 	})
 	if err != nil {
 		return nil
