@@ -5,8 +5,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
+	"path/filepath"
 )
 
 const AppName = "reclip-server"
@@ -75,9 +75,11 @@ func InitAppDataDir(argsPath string) (string, error) {
 	if !stat.IsDir() {
 		return "", fmt.Errorf("application data path is not a directory")
 	}
-
-	log.Printf("Server application data directory is: '%s'", path)
-	return path, nil
+	abs_path, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	return abs_path, nil
 }
 
 func ReadServerConfig(appDataDir string) (*Config, error) {

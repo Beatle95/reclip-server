@@ -16,6 +16,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to initialize application data directory: '%s'", err.Error())
 	}
+	log.Printf("Server application data directory is: '%s'", appDataDir)
 
 	config, err := internal.ReadServerConfig(appDataDir)
 	if err != nil {
