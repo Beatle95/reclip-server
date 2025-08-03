@@ -22,6 +22,8 @@ type Client interface {
 	NotifyClientSynced(data *ClientData)
 }
 
+const kMaxTextEntries = 10
+
 type clientImpl struct {
 	connection ClientConnection
 	delegate   ClientDelegate
@@ -165,7 +167,10 @@ func (c *clientImpl) processHostTextUpdate(data []byte) {
 		fmt.Print("Unable to parse host text update")
 		return
 	}
-	c.data.Data.Text.PushBack(text)
+	c.data.Data.Text.PushFront(text)
+	for c.data.Data.Text.Len() > kMaxTextEntries {
+		c.data.Data.Text.PopBack()
+	}
 	c.delegate.OnTextAdded(c, text)
 }
 
