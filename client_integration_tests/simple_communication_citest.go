@@ -7,8 +7,8 @@ import (
 	"os"
 )
 
-func RunSimpleCommunicationTest(port uint16) {
-	server, err := communication.CreateServerForTesting(port, 3)
+func RunSimpleCommunicationTest(port uint16, clients_count int) {
+	server, err := communication.CreateServerForTesting(port, clients_count)
 	if err != nil {
 		log.Fatalf("Unable to initialize the server: '%s'", err.Error())
 	}

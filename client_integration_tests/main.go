@@ -35,7 +35,9 @@ func runTest(test_name string, port uint16) {
 	case "communication_protocol_test":
 		communication.RunCommunicationProtocolTest(port)
 	case "simple_communication_test":
-		RunSimpleCommunicationTest(port)
+		RunSimpleCommunicationTest(port, 3)
+	case "multiple_communication_test":
+		RunSimpleCommunicationTest(port, 30)
 	default:
 		log.Fatalf("Unknown test: %s", test_name)
 	}
