@@ -1,6 +1,9 @@
 package internal
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 type ClientDelegate interface {
 	GetTaskRunner() EventLoop
@@ -65,6 +68,7 @@ func (c *clientImpl) ProcessMessage(id uint64, msgType ClientMessageType, data [
 func (c *clientImpl) OnDisconnected() {
 	c.delegate.OnClientDisconnected(c)
 	c.connection = nil
+	log.Printf("Client %s has been disconnected", c.data.Name)
 }
 
 // Client implementations:

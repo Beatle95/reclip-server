@@ -1,6 +1,8 @@
 package internal
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type ClientGroup interface {
 	AddClient(client Client)
@@ -25,7 +27,7 @@ type clientGroupImpl struct {
 func CreateClientGroup() ClientGroup {
 	return &clientGroupImpl{
 		clients:  make(map[uint64]Client),
-		mainLoop: CreateEventLoop(),
+		mainLoop: CreateEventLoop(100),
 		started:  false,
 	}
 }

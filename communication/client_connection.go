@@ -14,6 +14,7 @@ import (
 
 const messageHeaderSize = 24
 const minHeaderLen = 16
+const writeQueueSize = 100
 
 type networkMessage struct {
 	id      uint64
@@ -34,14 +35,14 @@ type clientConnectionImpl struct {
 func CreateClientConnectionForTesting(conn net.Conn) internal.ClientConnection {
 	return &clientConnectionImpl{
 		connection: conn,
-		writeQueue: make(chan networkMessage, 20),
+		writeQueue: make(chan networkMessage, writeQueueSize),
 	}
 }
 
 func createClientConnection(conn net.Conn) clientConnectionImpl {
 	return clientConnectionImpl{
 		connection: conn,
-		writeQueue: make(chan networkMessage, 20),
+		writeQueue: make(chan networkMessage, writeQueueSize),
 	}
 }
 
@@ -91,12 +92,25 @@ func (conn *clientConnectionImpl) DisconnectAndStop() {
 	conn.stopped.Store(true)
 	conn.connection.Close()
 	// We have to add some message in case there is no messages in send queue.
-	conn.writeQueue <- networkMessage{id: 0, msgType: 0, data: nil}
+	select {
+	case conn.writeQueue <- networkMessage{id: 0, msgType: 0, data: nil}:
+	default:
+	}
 }
 
 func (conn *clientConnectionImpl) SendMessage(
 	id uint64, msgType internal.ServerMessageType, data []byte) {
-	conn.writeQueue <- networkMessage{id: id, msgType: uint16(msgType), data: data}
+	if conn.stopped.Load() {
+		return
+	}
+
+	select {
+	case conn.writeQueue <- networkMessage{id: id, msgType: uint16(msgType), data: data}:
+	default:
+		log.Printf("Connection %s write queue is full, it will be disconnected.",
+			conn.GetAdressString())
+		conn.connection.Close()
+	}
 }
 
 func (conn *clientConnectionImpl) writerFunc() {
@@ -104,7 +118,7 @@ func (conn *clientConnectionImpl) writerFunc() {
 	for !conn.stopped.Load() {
 		msg := <-conn.writeQueue
 		if msg.data == nil {
-			return
+			break
 		}
 		len := uint64(16 + len(msg.data))
 		binary.BigEndian.PutUint64(prefixBuffer[:], len)
@@ -115,15 +129,18 @@ func (conn *clientConnectionImpl) writerFunc() {
 		_, err1 := conn.connection.Write(prefixBuffer[:])
 		if err1 != nil {
 			conn.stopped.Store(true)
-			return
+			break
 		}
 
 		_, err2 := conn.connection.Write(msg.data)
 		if err2 != nil {
 			conn.stopped.Store(true)
-			return
+			break
 		}
 	}
+
+	// Trying to prevent some annecessary log messages about full queue upon disconnection.
+	popAllMessages(&conn.writeQueue)
 }
 
 func (conn *clientConnectionImpl) readerFunc() {
@@ -132,9 +149,7 @@ func (conn *clientConnectionImpl) readerFunc() {
 	for !conn.stopped.Load() {
 		size, err := conn.connection.Read(buf)
 		if err != nil {
-			if err == io.EOF {
-				log.Printf("Client has been disconnected: %v", conn.connection.RemoteAddr())
-			} else {
+			if err != io.EOF {
 				log.Printf("Client network error: %v", err)
 			}
 			break
@@ -189,4 +204,14 @@ func readNBytes(conn net.Conn, n uint64) ([]byte, error) {
 	}
 
 	return buffer, nil
+}
+
+func popAllMessages(channel *chan networkMessage) {
+	for {
+		select {
+		case <-*channel:
+		default:
+			return
+		}
+	}
 }

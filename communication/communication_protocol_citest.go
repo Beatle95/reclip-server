@@ -37,7 +37,7 @@ func RunCommunicationProtocolTest(port uint16) {
 	clientConnection := CreateClientConnectionForTesting(conn)
 	testDelegate := TestConnectionDelegate{
 		connection:    clientConnection,
-		eventLoop:     internal.CreateEventLoop(),
+		eventLoop:     internal.CreateEventLoop(50),
 		clientMsgType: internal.ClientResponse,
 		serverMsgType: internal.ServerResponse,
 	}

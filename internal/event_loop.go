@@ -2,11 +2,13 @@ package internal
 
 import (
 	"sync/atomic"
+	"time"
 )
 
 type EventLoopTask func()
 
 type EventLoop interface {
+	SetPostTimeout(timeout time.Duration)
 	PostTask(task EventLoopTask)
 	Run()
 	RunUntilIdle()
@@ -15,19 +17,29 @@ type EventLoop interface {
 
 type eventLoopImpl struct {
 	tasks   chan EventLoopTask
+	timeout time.Duration
 	running atomic.Bool
 }
 
-func CreateEventLoop() *eventLoopImpl {
+func CreateEventLoop(size int) *eventLoopImpl {
 	result := eventLoopImpl{
-		tasks: make(chan EventLoopTask, 40),
+		tasks: make(chan EventLoopTask, size),
 	}
 	result.running.Store(true)
+	result.timeout = time.Second * 10
 	return &result
 }
 
+func (el *eventLoopImpl) SetPostTimeout(timeout time.Duration) {
+	el.timeout = timeout
+}
+
 func (el *eventLoopImpl) PostTask(task EventLoopTask) {
-	el.tasks <- task
+	select {
+	case el.tasks <- task:
+	case <-time.After(el.timeout):
+		panic("Event loop was become irresponsible")
+	}
 }
 
 func (el *eventLoopImpl) Run() {
